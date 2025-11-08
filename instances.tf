@@ -9,3 +9,12 @@ resource "aws_instance" "instance-a-frontend" {
   tags = { Name = "instance-a-frontend" }
 }
 
+resource "aws_instance" "instance-b-backend" {
+  ami                    = var.ami
+  instance_type          = "t2.micro"
+  key_name               = var.key_pair_name
+  subnet_id              = aws_subnet.private_subnet_a.id
+  vpc_security_group_ids = [aws_security_group.backend_sg.id]
+
+  tags = { Name = "instance-b-backend" }
+}
