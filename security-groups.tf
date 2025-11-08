@@ -44,3 +44,30 @@ resource "aws_security_group" "frontend_sg" {
     Name = "frontend-sg"
   }
 }
+
+# Backend Security Group
+resource "aws_security_group" "backend_sg" {
+  name        = "backend-sg"
+  vpc_id      = aws_vpc.main_vpc.id
+  description = "Allows inbound traffic from Vote/Result EC2 to Redis port (6379), and allows outbound to Postgres."
+
+  ingress {
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend_sg.id]
+  }
+
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    # TODO: Replace with DB SG
+    # cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+  tags = {
+    Name = "backend-sg"
+  }
+}
