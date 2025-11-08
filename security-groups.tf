@@ -59,15 +59,39 @@ resource "aws_security_group" "backend_sg" {
   }
 
   egress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    # TODO: Replace with DB SG
-    # cidr_blocks = ["0.0.0.0/0"]
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [aws_security_group.db_sg.id]
   }
-
 
   tags = {
     Name = "backend-sg"
+  }
+}
+
+#  Database Security Group 
+resource "aws_security_group" "db_sg" {
+  name        = "db_sg"
+  description = "Allow Postgres only from Worker"
+  vpc_id      = aws_vpc.main_vpc.id
+
+  ingress {
+    description     = "Postgres from Worker/Redis tier"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "db-sg"
   }
 }
