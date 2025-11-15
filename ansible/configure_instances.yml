@@ -13,16 +13,17 @@
           name: "vote"
           ports: "80:80"
           env:
-            REDIS_HOST: "10.0.2.119" # change this to get directly from inventory
-            DB_HOST: "10.0.3.18"
-        - image: "{{username}}/result:latest"   # example second container (change to what you want)
+            REDIS_HOST: "10.0.2.195" # change this to get directly from inventory
+            REDIS_PORT: "6379"
+        - image: "{{username}}/result:latest" # example second container (change to what you want)
           name: "result"
           ports: "81:80"
           env:
-            DB_HOST: "10.0.3.18"
-            DB_USER: "postgres"
-            DB_PASSWORD: "postgres"
-            DB_NAME: "postgres"
+            PG_HOST: "10.0.3.108"
+            PG_USER: "postgres"
+            PG_PASSWORD: "postgres"
+            PG_NAME: "postgres"
+            PG_PORT: "5432"
       backend-instance-1:
         - image: "redis"
           name: "redis"
@@ -31,6 +32,10 @@
           name: "worker"
           env:
             REDIS_HOST: "redis"
+            DB_HOST: "10.0.3.108"
+            DB_USER: "postgres"
+            DB_PASSWORD: "postgres"
+            DB_NAME: "postgres"
       db-instance-1:
         - image: "postgres"
           name: "postgres"
@@ -39,7 +44,6 @@
             POSTGRES_PASSWORD: "postgres"
             POSTGRES_DB: "postgres"
             POSTGRES_USER: "postgres"
-
 
   tasks:
     - name: Update apt package index
@@ -59,6 +63,12 @@
       loop: "{{ image_map[inventory_hostname] }}"
       when: image_map[inventory_hostname] is defined
 
+    - name: Create Docker network for backend only
+      docker_network:
+        name: backend_network
+        state: present
+      when: inventory_hostname == "backend-instance-1"
+
     - name: Run containers for this host (supports multiple)
       community.docker.docker_container:
         name: "{{ item.name }}"
@@ -67,5 +77,7 @@
         env: "{{ item.env | default(omit) }}"
         state: started
         restart_policy: always
+        networks:
+          - name: "{{ 'backend_network' if inventory_hostname == 'backend-instance-1' else 'bridge' }}"
       loop: "{{ image_map[inventory_hostname] }}"
       when: image_map[inventory_hostname] is defined
