@@ -2,17 +2,45 @@
 - name: Configure instances
   hosts: all
   become: yes
+
   vars:
     username: "pokfinner"
+
+    # Now image_map has lists instead of single strings
     image_map:
-      frontend-instance-1: "vote"
-      backend-instance-1: "result"
-      db-instance-1: "worker"
-    # username: "kabamaru2372"
-    # image_map:
-    #   frontend-instance-1: "voting-app"
-    #   backend-instance-1: "result-app"
-    #   db-instance-1: "worker-app"
+      frontend-instance-1:
+        - image: "{{username}}/vote:latest"
+          name: "vote"
+          ports: "80:80"
+          env:
+            REDIS_HOST: "10.0.2.119" # change this to get directly from inventory
+            DB_HOST: "10.0.3.18"
+        - image: "{{username}}/result:latest"   # example second container (change to what you want)
+          name: "result"
+          ports: "81:80"
+          env:
+            DB_HOST: "10.0.3.18"
+            DB_USER: "postgres"
+            DB_PASSWORD: "postgres"
+            DB_NAME: "postgres"
+      backend-instance-1:
+        - image: "redis"
+          name: "redis"
+          ports: "6379:6379"
+        - image: "{{username}}/worker:latest"
+          name: "worker"
+          env:
+            REDIS_HOST: "redis"
+      db-instance-1:
+        - image: "postgres"
+          name: "postgres"
+          ports: "5432:5432"
+          env:
+            POSTGRES_PASSWORD: "postgres"
+            POSTGRES_DB: "postgres"
+            POSTGRES_USER: "postgres"
+
+
   tasks:
     - name: Update apt package index
       ansible.builtin.apt:
@@ -23,14 +51,21 @@
         name: docker.io
         state: present
 
-
-    - name: Pull the designated Docker image for this host
+    - name: Pull Docker images for this host (supports multiple)
       community.docker.docker_image:
-        name: "{{ username }}/{{ image_map[inventory_hostname] }}"
-        source: pull
+        name: "{{ item.image }}"
         tag: latest
+        source: pull
+      loop: "{{ image_map[inventory_hostname] }}"
       when: image_map[inventory_hostname] is defined
-      # ansible.builtin.shell: |
-      #   docker pull --platform=linux/amd64 {{ username }}/{{ image_map[inventory_hostname] }}"
-      #   docker run -d {{ username }}/{{ image_map[inventory_hostname] }}"
 
+    - name: Run containers for this host (supports multiple)
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: "{{ item.image }}"
+        ports: "{{ item.ports | default(omit) }}"
+        env: "{{ item.env | default(omit) }}"
+        state: started
+        restart_policy: always
+      loop: "{{ image_map[inventory_hostname] }}"
+      when: image_map[inventory_hostname] is defined

@@ -24,6 +24,14 @@ resource "aws_security_group" "frontend_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+# RESULT app (port 81)
+  ingress {
+    from_port   = 81
+    to_port     = 81
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # SSH
   ingress {
     from_port   = 22
@@ -70,7 +78,8 @@ resource "aws_security_group" "backend_sg" {
     from_port       = 0
     to_port         = 0
     protocol        = "-1"
-    security_groups = [aws_security_group.db_sg.id]
+    cidr_blocks = [aws_vpc.main_vpc.cidr_block]
+    #security_groups = [aws_security_group.db_sg.id]
   }
 
   tags = {
@@ -90,6 +99,15 @@ resource "aws_security_group" "db_sg" {
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.frontend_sg.id]
+  }
+
+  # Allow Postgres from backend_sg  
+  ingress {
+    description     = "Postgres from backend"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.backend_sg.id]
   }
 
   # Allow SSH from frontend (bastion host)
